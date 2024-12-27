@@ -29,3 +29,55 @@ class StrategyNet(nn.Module):
             target_probs = torch.tensor([0.80, 0.05, 0.15])  # Desired initial probabilities
             log_probs = torch.log(target_probs)  # Logits that would produce these probabilities
             self.fc3.bias[:] = log_probs
+
+
+class KANLayer(nn.Module):
+    def __init__(self, input_dim, num_inner_funcs=10):
+        super().__init__()
+        self.input_dim = input_dim
+        self.num_inner_funcs = num_inner_funcs
+
+        # Inner functions g_i for each input dimension
+        self.inner_funcs = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(1, num_inner_funcs),
+                nn.Tanh(),
+                nn.Linear(num_inner_funcs, num_inner_funcs)
+            )
+            for _ in range(input_dim)
+        ])
+
+        # Outer function Φ
+        self.outer_func = nn.Sequential(
+            nn.Linear(input_dim * num_inner_funcs, num_inner_funcs),
+            nn.Tanh(),
+            nn.Linear(num_inner_funcs, 1)
+        )
+
+    def forward(self, x):
+        # Apply inner functions to each input dimension
+        inner_results = []
+        for i in range(self.input_dim):
+            x_i = x[:, i:i + 1]
+            g_i = self.inner_funcs[i](x_i)
+            inner_results.append(g_i)
+
+        combined = torch.cat(inner_results, dim=1)
+        return self.outer_func(combined)
+
+
+class KAN(nn.Module):
+    def __init__(self, input_size, output_size, num_inner_funcs=10):
+        super().__init__()
+        self.kan_layers = nn.ModuleList([
+            KANLayer(input_size, num_inner_funcs)
+            for _ in range(output_size)
+        ])
+
+    def forward(self, x):
+        outputs = []
+        for kan in self.kan_layers:
+            out_i = kan(x)
+            outputs.append(out_i)
+        logits = torch.cat(outputs, dim=1)
+        return logits

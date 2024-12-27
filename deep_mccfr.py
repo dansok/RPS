@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch import optim
 
 from action import Action
-from strategy import StrategyNet
+from strategy import KAN
 
 
 class DeepMCCFR:
@@ -13,17 +13,23 @@ class DeepMCCFR:
             self,
             iterations=1_000_000,
             batch_size=32,
-            memory_size=1000000,
-            lr=0.001,
+            memory_size=1_000_000,
+            lr=0.00001,
     ):
         self.num_actions = len(Action)
         self.iterations = iterations
         self.batch_size = batch_size
 
-        # Value networks for advantage estimation
+        # # Value networks for advantage estimation
+        # self.advantage_nets = [
+        #     StrategyNet(input_size=1, output_size=self.num_actions),  # Player 1
+        #     StrategyNet(input_size=1, output_size=self.num_actions)  # Player 2
+        # ]
+
+        # Use KAN networks instead of regular neural nets
         self.advantage_nets = [
-            StrategyNet(input_size=1, output_size=self.num_actions),  # Player 1
-            StrategyNet(input_size=1, output_size=self.num_actions)  # Player 2
+            KAN(input_size=1, output_size=self.num_actions, num_inner_funcs=10),
+            KAN(input_size=1, output_size=self.num_actions, num_inner_funcs=10)
         ]
 
         # Optimizers
